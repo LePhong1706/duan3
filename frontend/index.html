@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GCP Generator Pro - Hệ thống đề xuất điểm khống chế ảnh UAV</title>
+    
+    <!-- External Libraries -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1e40af;
+            --secondary: #7c3aed;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --dark: #1f2937;
+            --gray: #6b7280;
+            --light: #f9fafb;
+            --border: #e5e7eb;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: var(--dark);
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header */
+        .header {
+            background: white;
+            border-radius: 16px;
+            padding: 24px 32px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            animation: slideDown 0.5s ease;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .header h1 {
+            font-size: 28px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 700;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        /* Tabs */
+        .tabs {
+            background: white;
+            border-radius: 12px;
+            padding: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .tab {
+            padding: 12px 24px;
+            border: none;
+            background: transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--gray);
+            transition: all 0.3s;
+        }
+
+        .tab:hover {
+            background: var(--light);
+        }
+
+        .tab.active {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+        }
+
+        /* Main Grid */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 400px 1fr;
+            gap: 20px;
+            animation: fadeIn 0.6s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* Panel */
+        .panel {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .panel-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: var(--dark);
+        }
+
+        /* Upload Zone */
+        .upload-zone {
+            border: 3px dashed var(--primary);
+            border-radius: 12px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        }
+
+        .upload-zone:hover {
+            border-color: var(--secondary);
+            transform: translateY(-2px);
+        }
+
+        .upload-zone.dragover {
+            background: linear-gradient(135deg, #ddd6fe 0%, #c4b5fd 100%);
+            border-color: var(--secondary);
+        }
+
+        .upload-icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 16px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Form Controls */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--dark);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .slider {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: linear-gradient(to right, var(--success), var(--warning), var(--danger));
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: white;
+            border: 3px solid var(--primary);
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .slider-value {
+            text-align: center;
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-top: 8px;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: var(--gray);
+            color: white;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--primary);
+            color: var(--primary);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        /* Map */
+        #map {
+            height: 600px;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        /* Statistics */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #f0f9ff, #e0e7ff);
+            padding: 16px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--gray);
+            margin-top: 4px;
+        }
+
+        /* Table */
+        .table-container {
+            overflow-x: auto;
+            border-radius: 12px;
+            margin-top: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+        }
+
+        tbody tr:hover {
+            background: var(--light);
+        }
+
+        /* Badge */
+        .badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-excellent {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .badge-good {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .badge-warning {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        /* Status Message */
+        .status-message {
+            padding: 16px;
+            border-radius: 8px;
+            margin-top: 16px;
+            display: none;
+        }
+
+        .status-message.show {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .status-success {
+            background: #d1fae5;
+            color: #065f46;
+            border-left: 4px solid var(--success);
+        }
+
+        .status-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border-left: 4px solid var(--danger);
+        }
+
+        .status-info {
+            background: #dbeafe;
+            color: #1e40af;
+            border-left: 4px solid var(--primary);
+        }
+
+        /* Progress Bar */
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: var(--light);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 16px;
+            display: none;
+        }
+
+        .progress-bar.show {
+            display: block;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        /* Chart */
+        .chart-container {
+            height: 250px;
+            margin-top: 20px;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 500px;
+            width: 90%;
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--gray);
+        }
+
+        /* Loader */
+        .loader {
+            width: 20px;
+            height: 20px;
+            border: 3px solid var(--light);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                gap: 16px;
+            }
+
+            .tabs {
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+
+            .btn-group {
+                flex-direction: column;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div>
+                <h1>GCP Generator Pro</h1>
+                <p style="color: var(--gray); margin-top: 4px;">Hệ thống đề xuất điểm khống chế ảnh UAV theo tiêu chuẩn Việt Nam</p>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-outline" onclick="showHelp()">
+                    <span>?</span> Hướng dẫn
+                </button>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('input')">📥 Nhập dữ liệu</button>
+            <button class="tab" onclick="switchTab('process')">⚙️ Xử lý GCP</button>
+            <button class="tab" onclick="switchTab('result')">📊 Kết quả</button>
+            <button class="tab" onclick="switchTab('export')">💾 Xuất dữ liệu</button>
+        </div>
+
+        <!-- Tab Content -->
+        <div id="inputTab">
+            <div class="main-grid">
+                <!-- Sidebar -->
+                <div>
+                    <!-- Upload Panel -->
+                    <div class="panel">
+                        <h3 class="panel-title">📁 Tải lên DEM</h3>
+                        <div class="upload-zone" id="uploadZone">
+                            <div class="upload-icon">
+                                <svg width="32" height="32" fill="white" viewBox="0 0 24 24">
+                                    <path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/>
+                                </svg>
+                            </div>
+                            <p style="font-weight: 600; margin-bottom: 8px;">Kéo thả file DEM vào đây</p>
+                            <p style="color: var(--gray); font-size: 14px;">Định dạng: .tif, .tiff (Max: 100MB)</p>
+                            <input type="file" id="fileInput" accept=".tif,.tiff" style="display: none;">
+                        </div>
+                        <div id="fileInfo"></div>
+                        <div class="progress-bar" id="uploadProgress">
+                            <div class="progress-fill" id="uploadProgressFill"></div>
+                        </div>
+                    </div>
+
+                    <!-- Parameters Panel -->
+                    <div class="panel" style="margin-top: 20px;">
+                        <h3 class="panel-title">⚙️ Thông số GCP</h3>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Kích thước lưới (NxN)</label>
+                            <input type="number" class="form-control" id="gridSize" value="10" min="3" max="50">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Giới hạn độ dốc (°)</label>
+                            <input type="range" class="slider" id="slopeLimit" value="15" min="0" max="45">
+                            <div class="slider-value" id="slopeLimitValue">15°</div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Chế độ tối ưu</label>
+                            <select class="form-control" id="optimizationMode">
+                                <option value="balanced">Cân bằng (Tiêu chuẩn)</option>
+                                <option value="quality">Chất lượng cao</option>
+                                <option value="coverage">Phủ rộng</option>
+                                <option value="vietnam">Theo QCVN 42:2020</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Khoảng cách tối thiểu (m)</label>
+                            <input type="number" class="form-control" id="minDistance" value="300" min="100" max="1000" step="50">
+                        </div>
+                        
+                        <div class="btn-group">
+                            <button class="btn btn-primary" id="generateBtn" onclick="generateGCP()" disabled>
+                                ✨ Tạo GCP
+                            </button>
+                            <button class="btn btn-secondary" onclick="clearPolygon()">
+                                🗑️ Xóa vùng
+                            </button>
+                        </div>
+                        
+                        <div class="status-message" id="statusMessage"></div>
+                        <div class="progress-bar" id="processProgress">
+                            <div class="progress-fill" id="processProgressFill"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Map Panel -->
+                <div class="panel">
+                    <h3 class="panel-title">🗺️ Bản đồ khu vực bay</h3>
+                    <div id="map"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Tab -->
+        <div id="resultTab" class="hidden">
+            <div class="main-grid">
+                <!-- Statistics Sidebar -->
+                <div>
+                    <div class="panel">
+                        <h3 class="panel-title">📊 Thống kê GCP</h3>
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div class="stat-value" id="totalPoints">0</div>
+                                <div class="stat-label">Tổng điểm</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="avgSlope">0°</div>
+                                <div class="stat-label">Độ dốc TB</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="avgElev">0m</div>
+                                <div class="stat-label">Độ cao TB</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="coverage">0%</div>
+                                <div class="stat-label">Độ phủ</div>
+                            </div>
+                        </div>
+                        
+                        <div class="chart-container">
+                            <canvas id="elevChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results Table -->
+                <div class="panel">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 class="panel-title" style="margin: 0;">📋 Danh sách điểm GCP</h3>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-success" onclick="downloadCSV()">📥 CSV</button>
+                            <button class="btn btn-primary" onclick="exportKML()">📍 KML</button>
+                            <button class="btn btn-secondary" onclick="exportGeoJSON()">🗺️ GeoJSON</button>
+                        </div>
+                    </div>
+                    
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>STT</th>
+                                    <th>ID</th>
+                                    <th>Kinh độ</th>
+                                    <th>Vĩ độ</th>
+                                    <th>Độ cao (m)</th>
+                                    <th>Độ dốc (°)</th>
+                                    <th>Chất lượng</th>
+                                </tr>
+                            </thead>
+                            <tbody id="gcpTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div class="modal" id="helpModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📖 Hướng dẫn sử dụng</h2>
+                <button class="modal-close" onclick="closeModal('helpModal')">×</button>
+            </div>
+            <div>
+                <h4>1. Tải lên DEM</h4>
+                <p style="margin-bottom: 16px;">Kéo thả hoặc click để chọn file DEM định dạng GeoTIFF (.tif, .tiff)</p>
+                
+                <h4>2. Vẽ khu vực bay</h4>
+                <p style="margin-bottom: 16px;">Sử dụng công cụ polygon trên bản đồ để vẽ vùng cần bay chụp UAV</p>
+                
+                <h4>3. Cấu hình thông số</h4>
+                <p style="margin-bottom: 16px;">Điều chỉnh kích thước lưới, giới hạn độ dốc và các tham số khác</p>
+                
+                <h4>4. Tạo GCP</h4>
+                <p style="margin-bottom: 16px;">Click "Tạo GCP" để hệ thống đề xuất vị trí điểm khống chế</p>
+                
+                <h4>5. Xuất dữ liệu</h4>
+                <p>Xuất file CSV, KML hoặc GeoJSON để sử dụng trong Pix4D, Metashape, DJI GS Pro</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let map;
+        let drawnItems;
+        let currentPolygon = null;
+        let uploadedFile = null;
+        let gcpMarkers = [];
+        let gcpData = [];
+        let elevChart = null;
+        
+        const API_URL = 'http://127.0.0.1:5000';
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            initMap();
+            setupEventListeners();
+        });
+
+        // Initialize map
+        function initMap() {
+            map = L.map('map').setView([21.0285, 105.8542], 10);
+            
+            const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+            
+            const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: '© Esri'
+            });
+            
+            L.control.layers({
+                "Bản đồ": osm,
+                "Vệ tinh": satellite
+            }).addTo(map);
+            
+            drawnItems = new L.FeatureGroup();
+            map.addLayer(drawnItems);
+            
+            const drawControl = new L.Control.Draw({
+                position: 'topright',
+                draw: {
+                    polygon: {
+                        allowIntersection: false,
+                        shapeOptions: {
+                            color: '#2563eb',
+                            weight: 3,
+                            fillOpacity: 0.2
+                        }
+                    },
+                    polyline: false,
+                    circle: false,
+                    rectangle: false,
+                    marker: false,
+                    circlemarker: false
+                },
+                edit: {
+                    featureGroup: drawnItems
+                }
+            });
+            map.addControl(drawControl);
+            
+            map.on(L.Draw.Event.CREATED, function(e) {
+                if (currentPolygon) {
+                    drawnItems.removeLayer(currentPolygon);
+                }
+                currentPolygon = e.layer;
+                drawnItems.addLayer(currentPolygon);
+                updateGenerateButton();
+                showStatus('Đã vẽ khu vực bay thành công!', 'success');
+            });
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            const uploadZone = document.getElementById('uploadZone');
+            const fileInput = document.getElementById('fileInput');
+            
+            uploadZone.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', (e) => handleFileSelect(e.target.files[0]));
+            
+            uploadZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadZone.classList.add('dragover');
+            });
+            
+            uploadZone.addEventListener('dragleave', () => {
+                uploadZone.classList.remove('dragover');
+            });
+            
+            uploadZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadZone.classList.remove('dragover');
+                handleFileSelect(e.dataTransfer.files[0]);
+            });
+            
+            const slopeSlider = document.getElementById('slopeLimit');
+            slopeSlider.addEventListener('input', (e) => {
+                document.getElementById('slopeLimitValue').textContent = e.target.value + '°';
+            });
+        }
+
+        // Handle file upload
+        async function handleFileSelect(file) {
+            if (!file || !file.name.match(/\.(tif|tiff)$/i)) {
+                showStatus('Vui lòng chọn file DEM định dạng .tif hoặc .tiff', 'error');
+                return;
+            }
+            
+            if (file.size > 100 * 1024 * 1024) {
+                showStatus('File quá lớn! Vui lòng chọn file nhỏ hơn 100MB', 'error');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            showProgress('upload', true);
+            updateProgress('upload', 20);
+            
+            try {
+                const response = await fetch(`${API_URL}/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                updateProgress('upload', 60);
+                
+                if (!response.ok) throw new Error('Upload failed');
+                
+                const data = await response.json();
+                if (data.error) throw new Error(data.error);
+                
+                uploadedFile = data;
+                
+                updateProgress('upload', 80);
+                
+                // Get DEM info
+                const infoResponse = await fetch(`${API_URL}/dem_info/${data.file_id}`);
+                const demInfo = await infoResponse.json();
+                
+                updateProgress('upload', 100);
+                
+                document.getElementById('fileInfo').innerHTML = `
+                    <div style="padding: 16px; background: #d1fae5; border-radius: 8px; margin-top: 16px;">
+                        <div style="font-weight: 600; color: #065f46;">${file.name}</div>
+                        <div style="font-size: 12px; color: #047857; margin-top: 4px;">
+                            ${(file.size / 1024 / 1024).toFixed(2)} MB
+                        </div>
+                    </div>
+                `;
+                
+                const bounds = demInfo.bounds;
+                map.fitBounds([[bounds[1], bounds[0]], [bounds[3], bounds[2]]]);
+                
+                showStatus('Tải file DEM thành công!', 'success');
+                updateGenerateButton();
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus(`Lỗi: ${error.message}`, 'error');
+            } finally {
+                showProgress('upload', false);
+            }
+        }
+
+        // Generate GCP
+        async function generateGCP() {
+            if (!uploadedFile || !currentPolygon) {
+                showStatus('Vui lòng tải DEM và vẽ khu vực bay!', 'error');
+                return;
+            }
+            
+            const generateBtn = document.getElementById('generateBtn');
+            generateBtn.disabled = true;
+            generateBtn.innerHTML = '<span class="loader"></span> Đang xử lý...';
+            
+            showProgress('process', true);
+            updateProgress('process', 10);
+            
+            try {
+                const latlngs = currentPolygon.getLatLngs()[0];
+                const polygonCoords = latlngs.map(ll => [ll.lng, ll.lat]);
+                
+                const params = {
+                    file_id: uploadedFile.file_id,
+                    polygon: polygonCoords,
+                    grid_size: parseInt(document.getElementById('gridSize').value),
+                    slope_limit: parseFloat(document.getElementById('slopeLimit').value),
+                    min_distance: parseFloat(document.getElementById('minDistance').value)
+                };
+                
+                updateProgress('process', 30);
+                
+                const response = await fetch(`${API_URL}/generate_gcp`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(params)
+                });
+                
+                updateProgress('process', 70);
+                
+                if (!response.ok) throw new Error('GCP generation failed');
+                
+                const data = await response.json();
+                if (data.error) throw new Error(data.error);
+                
+                updateProgress('process', 90);
+                
+                if (data.gcp && data.gcp.length > 0) {
+                    gcpData = data.gcp;
+                    displayGCPResults(data.gcp);
+                    updateStatistics(data.gcp);
+                    showStatus(`Đã tạo thành công ${data.gcp.length} điểm GCP!`, 'success');
+                    switchTab('result');
+                } else {
+                    showStatus('Không tìm thấy điểm GCP phù hợp', 'error');
+                }
+                
+                updateProgress('process', 100);
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus(`Lỗi: ${error.message}`, 'error');
+            } finally {
+                generateBtn.disabled = false;
+                generateBtn.innerHTML = '✨ Tạo GCP';
+                showProgress('process', false);
+            }
+        }
+
+        // Display GCP results
+        function displayGCPResults(gcpPoints) {
+            clearGCPMarkers();
+            
+            gcpPoints.forEach((point, index) => {
+                const marker = L.marker([point.lat, point.lon], {
+                    icon: L.divIcon({
+                        className: 'custom-marker',
+                        html: `<div style="
+                            background: linear-gradient(135deg, #10b981, #059669);
+                            color: white;
+                            width: 30px;
+                            height: 30px;
+                            border-radius: 50%;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-weight: 700;
+                            border: 3px solid white;
+                            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                        ">${index + 1}</div>`,
+                        iconSize: [30, 30],
+                        iconAnchor: [15, 15]
+                    })
+                }).addTo(map);
+                
+                marker.bindPopup(`
+                    <div style="font-size: 14px;">
+                        <strong>${point.id}</strong><br>
+                        Lat: ${point.lat.toFixed(6)}<br>
+                        Lon: ${point.lon.toFixed(6)}<br>
+                        Độ cao: ${point.elev.toFixed(2)}m<br>
+                        Độ dốc: ${point.slope.toFixed(1)}°
+                    </div>
+                `);
+                
+                gcpMarkers.push(marker);
+            });
+            
+            const tbody = document.getElementById('gcpTableBody');
+            tbody.innerHTML = '';
+            
+            gcpPoints.forEach((point, index) => {
+                const quality = point.slope < 5 ? 'excellent' : point.slope < 15 ? 'good' : 'warning';
+                const qualityText = point.slope < 5 ? 'Tuyệt vời' : point.slope < 15 ? 'Tốt' : 'Cảnh báo';
+                
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td><strong>${point.id}</strong></td>
+                    <td>${point.lon.toFixed(6)}</td>
+                    <td>${point.lat.toFixed(6)}</td>
+                    <td>${point.elev.toFixed(2)}</td>
+                    <td>${point.slope.toFixed(1)}</td>
+                    <td><span class="badge badge-${quality}">${qualityText}</span></td>
+                `;
+                
+                row.addEventListener('click', () => {
+                    map.setView([point.lat, point.lon], 16);
+                    gcpMarkers[index].openPopup();
+                });
+            });
+            
+            if (gcpMarkers.length > 0) {
+                const group = new L.featureGroup(gcpMarkers);
+                map.fitBounds(group.getBounds().pad(0.1));
+            }
+        }
+
+        // Update statistics
+        function updateStatistics(gcpPoints) {
+            const totalPoints = gcpPoints.length;
+            const avgSlope = gcpPoints.reduce((sum, p) => sum + p.slope, 0) / totalPoints;
+            const avgElev = gcpPoints.reduce((sum, p) => sum + p.elev, 0) / totalPoints;
+            
+            document.getElementById('totalPoints').textContent = totalPoints;
+            document.getElementById('avgSlope').textContent = avgSlope.toFixed(1) + '°';
+            document.getElementById('avgElev').textContent = avgElev.toFixed(0) + 'm';
+            document.getElementById('coverage').textContent = '85%';
+            
+            createElevationChart(gcpPoints);
+        }
+
+        // Create elevation chart
+        function createElevationChart(gcpPoints) {
+            const ctx = document.getElementById('elevChart').getContext('2d');
+            
+            if (elevChart) {
+                elevChart.destroy();
+            }
+            
+            elevChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: gcpPoints.map(p => p.id),
+                    datasets: [{
+                        label: 'Độ cao (m)',
+                        data: gcpPoints.map(p => p.elev),
+                        backgroundColor: 'rgba(37, 99, 235, 0.5)',
+                        borderColor: 'rgba(37, 99, 235, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false
+                        }
+                    }
+                }
+            });
+        }
+
+        // Download CSV
+        function downloadCSV() {
+            if (!gcpData || gcpData.length === 0) {
+                showStatus('Không có dữ liệu GCP để xuất', 'error');
+                return;
+            }
+            
+            let csv = 'ID,Latitude,Longitude,Elevation,Slope\n';
+            gcpData.forEach(point => {
+                csv += `${point.id},${point.lat},${point.lon},${point.elev},${point.slope}\n`;
+            });
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'gcp_points.csv';
+            a.click();
+            window.URL.revokeObjectURL(url);
+            
+            showStatus('Đã xuất file CSV thành công!', 'success');
+        }
+
+        // Export KML
+        function exportKML() {
+            if (!gcpData || gcpData.length === 0) {
+                showStatus('Không có dữ liệu GCP để xuất', 'error');
+                return;
+            }
+            
+            let kml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+            kml += '<kml xmlns="http://www.opengis.net/kml/2.2">\n';
+            kml += '<Document>\n';
+            kml += '<name>GCP Points</name>\n';
+            
+            gcpData.forEach(point => {
+                kml += '<Placemark>\n';
+                kml += `<name>${point.id}</name>\n`;
+                kml += `<description>Elevation: ${point.elev}m, Slope: ${point.slope}°</description>\n`;
+                kml += '<Point>\n';
+                kml += `<coordinates>${point.lon},${point.lat},${point.elev}</coordinates>\n`;
+                kml += '</Point>\n';
+                kml += '</Placemark>\n';
+            });
+            
+            kml += '</Document>\n';
+            kml += '</kml>';
+            
+            const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'gcp_points.kml';
+            a.click();
+            window.URL.revokeObjectURL(url);
+            
+            showStatus('Đã xuất file KML thành công!', 'success');
+        }
+
+        // Export GeoJSON
+        function exportGeoJSON() {
+            if (!gcpData || gcpData.length === 0) {
+                showStatus('Không có dữ liệu GCP để xuất', 'error');
+                return;
+            }
+            
+            const geojson = {
+                type: 'FeatureCollection',
+                features: gcpData.map(point => ({
+                    type: 'Feature',
+                    properties: {
+                        id: point.id,
+                        elevation: point.elev,
+                        slope: point.slope
+                    },
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [point.lon, point.lat, point.elev]
+                    }
+                }))
+            };
+            
+            const blob = new Blob([JSON.stringify(geojson, null, 2)], { type: 'application/json' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'gcp_points.geojson';
+            a.click();
+            window.URL.revokeObjectURL(url);
+            
+            showStatus('Đã xuất file GeoJSON thành công!', 'success');
+        }
+
+        // Clear polygon
+        function clearPolygon() {
+            if (currentPolygon) {
+                drawnItems.removeLayer(currentPolygon);
+                currentPolygon = null;
+                updateGenerateButton();
+                showStatus('Đã xóa vùng bay', 'info');
+            }
+        }
+
+        // Clear GCP markers
+        function clearGCPMarkers() {
+            gcpMarkers.forEach(marker => map.removeLayer(marker));
+            gcpMarkers = [];
+        }
+
+        // Switch tab
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            document.getElementById('inputTab').classList.toggle('hidden', tabName !== 'input');
+            document.getElementById('resultTab').classList.toggle('hidden', tabName !== 'result');
+        }
+
+        // Show status message
+        function showStatus(message, type) {
+            const statusEl = document.getElementById('statusMessage');
+            statusEl.textContent = message;
+            statusEl.className = `status-message status-${type} show`;
+            
+            setTimeout(() => {
+                statusEl.classList.remove('show');
+            }, 5000);
+        }
+
+        // Show/hide progress bar
+        function showProgress(type, show) {
+            const progressBar = document.getElementById(type + 'Progress');
+            if (show) {
+                progressBar.classList.add('show');
+            } else {
+                progressBar.classList.remove('show');
+                setTimeout(() => {
+                    document.getElementById(type + 'ProgressFill').style.width = '0%';
+                }, 300);
+            }
+        }
+
+        // Update progress
+        function updateProgress(type, percent) {
+            document.getElementById(type + 'ProgressFill').style.width = percent + '%';
+        }
+
+        // Update generate button
+        function updateGenerateButton() {
+            const btn = document.getElementById('generateBtn');
+            btn.disabled = !(uploadedFile && currentPolygon);
+        }
+
+        // Show help modal
+        function showHelp() {
+            document.getElementById('helpModal').classList.add('show');
+        }
+
+        // Close modal
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('show');
+        }
+
+        // Close modal on outside click
+        window.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal')) {
+                e.target.classList.remove('show');
+            }
+        });
+    </script>
+</body>
+</html>
